@@ -23,7 +23,9 @@ class DirectionalRevealTest {
         assertTrue(engine.mask.get(12, 12) in 1..200)
 
         engine.begin(Point(4f, 12f), 1f, brush)
-        repeat(12) { engine.move(Point(20f, 12f), 1f) }
+        // A strict directional match deliberately contributes less per pass;
+        // repeated local passes must nevertheless reach the exact mask maximum.
+        repeat(32) { engine.move(Point(20f, 12f), 1f) }
         engine.end()
         assertEquals(1000, engine.mask.get(12, 12))
     }
