@@ -22,11 +22,14 @@ class DirectionalRevealTest {
         engine.end()
         assertTrue(engine.mask.get(12, 12) in 1..200)
 
-        engine.begin(Point(4f, 12f), 1f, brush)
-        // A strict directional match deliberately contributes less per pass;
-        // repeated local passes must nevertheless reach the exact mask maximum.
-        repeat(32) { engine.move(Point(20f, 12f), 1f) }
-        engine.end()
+        // Each completed local pass is a distinct user stroke.  Directional
+        // assistance must reduce one pass without making the location
+        // impossible to finish through normal repeated drawing.
+        repeat(24) {
+            engine.begin(Point(4f, 12f), 1f, brush)
+            engine.move(Point(20f, 12f), 1f)
+            engine.end()
+        }
         assertEquals(1000, engine.mask.get(12, 12))
     }
 
