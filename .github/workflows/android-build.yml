@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify-and-build:
@@ -61,12 +61,17 @@ jobs:
           mkdir -p dist
           cp "$apk" dist/VeilaPaint-0.7.0-debug.apk
           sha256sum dist/VeilaPaint-0.7.0-debug.apk | tee dist/SHA256SUMS.txt
-      - name: Upload verified APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: VeilaPaint-0.7.0-debug
-          path: |
-            dist/VeilaPaint-0.7.0-debug.apk
-            dist/SHA256SUMS.txt
-          if-no-files-found: error
-          retention-days: 1
+      - name: Publish verified APK to the private release branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/veila-release
+          cp dist/VeilaPaint-0.7.0-debug.apk /tmp/veila-release/
+          cp dist/SHA256SUMS.txt /tmp/veila-release/
+          git switch --orphan apk/0.7.0
+          git rm -rf . >/dev/null 2>&1 || true
+          mkdir -p releases
+          cp /tmp/veila-release/* releases/
+          git add releases
+          git -c user.name="Veila Paint CI" -c user.email="ci@nuvora.studio" commit -m "release: Veila Paint 0.7.0 APK"
+          git push --force origin HEAD:refs/heads/apk/0.7.0
