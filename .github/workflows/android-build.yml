@@ -27,7 +27,9 @@ jobs:
         run: |
           set -euo pipefail
           sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          set +o pipefail
           yes | "$sdkmanager" --licenses >/dev/null
+          set -o pipefail
           "$sdkmanager" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
           "$ANDROID_HOME/build-tools/35.0.0/aapt2" version
