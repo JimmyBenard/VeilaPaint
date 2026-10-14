@@ -3,6 +3,8 @@ name: Veila Paint 0.7.0 APK
 on:
   push:
     branches: [build/0.7.0]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
