@@ -1,0 +1,68 @@
+name: Veila Paint 0.7.0 APK
+
+on:
+  push:
+    branches: [build/0.7.0]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null
+          "$sdkmanager" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" version
+          java -cp "$ANDROID_HOME/build-tools/35.0.0/lib/d8.jar" com.android.tools.r8.D8 --version
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" version
+      - name: Download Gradle 8.11.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 https://services.gradle.org/distributions/gradle-8.11.1-bin.zip --output /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt
+          /opt/gradle-8.11.1/bin/gradle --version
+      - name: Test, lint and assemble APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          /opt/gradle-8.11.1/bin/gradle --no-daemon --console=plain :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+          test -s app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify package and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | tee /tmp/badging.txt
+          grep -q "package: name='studio.nuvora.veila'" /tmp/badging.txt
+          grep -q "versionCode='11'" /tmp/badging.txt
+          grep -q "versionName='0.7.0'" /tmp/badging.txt
+          mkdir -p dist
+          cp "$apk" dist/VeilaPaint-0.7.0-debug.apk
+          sha256sum dist/VeilaPaint-0.7.0-debug.apk | tee dist/SHA256SUMS.txt
+      - name: Upload verified APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VeilaPaint-0.7.0-debug
+          path: |
+            dist/VeilaPaint-0.7.0-debug.apk
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 1
