@@ -1,0 +1,1 @@
+c0380c37af935d94d2e620ded245beb943c8e04e85c918584e4fa8815522bb35  dist/VeilaPaint-0.7.0-debug.apk
