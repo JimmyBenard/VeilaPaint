@@ -1,17 +1,12 @@
 package studio.nuvora.veila.studio
 
-import android.content.Context
-import android.text.format.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Local device time for the simulated system status bar. */
-fun formatStatusBarTime(context: Context, epochMillis: Long = System.currentTimeMillis()): String {
-    val now = Date(epochMillis)
-    val pattern = if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm a"
-    return SimpleDateFormat(pattern, Locale.getDefault()).format(now)
-}
+/** Time projected by the simulated clock, deliberately fixed to Android-style HH:mm. */
+fun formatStatusBarTime(epochMillis: Long): String =
+    SimpleDateFormat("HH:mm", Locale.FRANCE).format(Date(epochMillis))
 
 /** Date projected by the same simulated clock as the work duration. */
 fun formatSimulatedStatusDate(epochMillis: Long): String =
