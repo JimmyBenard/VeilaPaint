@@ -6,11 +6,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Civil projection of the monotonic simulated work clock. */
-fun formatAtelierDateTime(context: Context, epochMillis: Long): String {
+/** Local device time for the simulated system status bar. */
+fun formatStatusBarTime(context: Context, epochMillis: Long = System.currentTimeMillis()): String {
     val now = Date(epochMillis)
-    // Seconds are deliberately explicit so accelerated time shows each simulated second.
-    val pattern = if (DateFormat.is24HourFormat(context)) "HH:mm:ss" else "h:mm:ss a"
-    val time = SimpleDateFormat(pattern, Locale.getDefault()).format(now)
-    return "${DateFormat.getDateFormat(context).format(now)} · $time"
+    val pattern = if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm a"
+    return SimpleDateFormat(pattern, Locale.getDefault()).format(now)
 }
+
+/** Date projected by the same simulated clock as the work duration. */
+fun formatSimulatedStatusDate(epochMillis: Long): String =
+    SimpleDateFormat("EEE d MMM", Locale.FRANCE).format(Date(epochMillis)).lowercase(Locale.FRANCE)
