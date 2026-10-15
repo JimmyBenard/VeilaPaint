@@ -49,6 +49,13 @@ jobs:
           set -o pipefail
           "$sdkmanager" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+      - name: Download Gradle 8.11.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 https://services.gradle.org/distributions/gradle-8.11.1-bin.zip --output /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt
+          /opt/gradle-8.11.1/bin/gradle --version
       - name: Test, lint and assemble signed APK
         env:
           VEILA_KEY_ALIAS: ${{ secrets.VEILA_KEY_ALIAS }}
@@ -57,8 +64,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x gradlew
-          ./gradlew --no-daemon --console=plain :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+          /opt/gradle-8.11.1/bin/gradle --no-daemon --console=plain :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
           mkdir -p dist
           cp app/build/outputs/apk/debug/app-debug.apk dist/VeilaPaint-0.7.1-debug.apk
       - name: Verify package, signature and matching source
