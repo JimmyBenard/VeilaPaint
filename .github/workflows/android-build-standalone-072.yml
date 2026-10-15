@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify-and-build:
@@ -77,3 +77,15 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
+      - name: Publish direct GitHub download
+        if: github.ref == 'refs/heads/build/0.7.2'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v0.7.2-independent"
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Veila Paint 0.7.2 — APK autonome" --notes "APK autonome : il s'installe à côté des versions précédentes."
+          fi
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" dist/VeilaPaint-0.7.2.apk#VeilaPaint-0.7.2.apk dist/VeilaPaint-0.7.2-source.zip#VeilaPaint-0.7.2-source.zip --clobber
