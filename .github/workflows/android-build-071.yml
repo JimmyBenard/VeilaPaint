@@ -12,6 +12,8 @@ jobs:
   verify-and-build:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    env:
+      VEILA_SIGNING_CONFIGURED: ${{ secrets.VEILA_KEYSTORE_BASE64 != '' && secrets.VEILA_KEY_ALIAS != '' && secrets.VEILA_STORE_PASSWORD != '' && secrets.VEILA_KEY_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,7 +25,7 @@ jobs:
           java-version: '17'
           cache: gradle
       - name: Restore historical signing key when configured
-        if: ${{ secrets.VEILA_KEYSTORE_BASE64 != '' && secrets.VEILA_KEY_ALIAS != '' && secrets.VEILA_STORE_PASSWORD != '' && secrets.VEILA_KEY_PASSWORD != '' }}
+        if: env.VEILA_SIGNING_CONFIGURED == 'true'
         env:
           VEILA_KEYSTORE_BASE64: ${{ secrets.VEILA_KEYSTORE_BASE64 }}
           VEILA_KEY_ALIAS: ${{ secrets.VEILA_KEY_ALIAS }}
