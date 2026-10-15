@@ -23,6 +23,10 @@ data class Brush(
     /** Local mask assistance. Old projects opt out during JSON migration. */
     val directionalReveal: Boolean = true,
     val directionalStrength: DirectionalStrength = DirectionalStrength.MODERATE,
+    /** Keeps the reveal footprint on the locally selected contour when a map is available. */
+    val strokeIsolation: Boolean = false,
+    /** In strict mode ambiguous or neighbouring contours receive no contribution. */
+    val strictStrokeIsolation: Boolean = false,
 ) {
     init {
         require(size.isFinite() && size in 1f..1600f)
@@ -73,6 +77,104 @@ class DirectionalGuide(
             compatible.coerceIn(0f, 1f).pow(strength.exponent)
         // Confidence only removes assistance; uncertain regions remain a conventional brush.
         return 1f - confidence * (1f - selective)
+    }
+}
+
+/**
+ * Cached, image-local contour segmentation used by the ordinary reveal brush.  Labels are
+ * advisory and are never saved as drawing data: the mask remains the only source of truth.
+ * A non-positive label denotes a region where no reliable individual contour was identified.
+ */
+class TraitIsolationMap(
+    val width: Int,
+    val height: Int,
+    val cell: Int,
+    private val labels: IntArray,
+    private val tangentX: FloatArray,
+    private val tangentY: FloatArray,
+    private val confidenceValues: ByteArray,
+) {
+    data class Candidate(
+        val id: Int,
+        val score: Float,
+        val distance: Float,
+        val tangent: Point,
+        val confidence: Float,
+    )
+
+    private val columns = (width + cell - 1) / cell
+    private val rows = (height + cell - 1) / cell
+
+    init {
+        require(labels.size == columns * rows)
+        require(tangentX.size == labels.size && tangentY.size == labels.size)
+        require(confidenceValues.size == labels.size)
+    }
+
+    private fun index(x: Int, y: Int) =
+        (y.coerceIn(0, height - 1) / cell) * columns + (x.coerceIn(0, width - 1) / cell)
+
+    /**
+     * Finds a nearby labelled contour.  Direction is orientation-only, so both drawing senses
+     * remain equivalent.  The followed id only provides a small hysteresis, never a hard lock.
+     */
+    fun select(point: Point, direction: Point?, followedId: Int?, radius: Float): Candidate? =
+        find(point, direction, followedId, radius, null)
+
+    fun candidateFor(id: Int, point: Point, direction: Point?, radius: Float): Candidate? =
+        find(point, direction, id, radius, id)
+
+    private fun find(
+        point: Point,
+        direction: Point?,
+        followedId: Int?,
+        radius: Float,
+        onlyId: Int?,
+    ): Candidate? {
+        val cx = (point.x.toInt().coerceIn(0, width - 1) / cell)
+        val cy = (point.y.toInt().coerceIn(0, height - 1) / cell)
+        val scan = (ceil((radius.coerceAtLeast(cell.toFloat()) * 1.25f) / cell).toInt() + 1)
+            .coerceIn(2, 12)
+        var best: Candidate? = null
+        for (y in (cy - scan).coerceAtLeast(0)..(cy + scan).coerceAtMost(rows - 1)) {
+            for (x in (cx - scan).coerceAtLeast(0)..(cx + scan).coerceAtMost(columns - 1)) {
+                val i = y * columns + x
+                val id = labels[i]
+                if (id <= 0 || (onlyId != null && id != onlyId)) continue
+                val confidence = (confidenceValues[i].toInt() and 0xff) / 255f
+                if (confidence < .20f) continue
+                val dx = (x * cell + cell * .5f) - point.x
+                val dy = (y * cell + cell * .5f) - point.y
+                val distance = hypot(dx, dy)
+                val proximity = (1f - distance / ((scan + .5f) * cell)).coerceIn(0f, 1f)
+                val angular = direction?.let {
+                    abs(it.x * tangentX[i] + it.y * tangentY[i]).coerceIn(0f, 1f)
+                } ?: 1f
+                val continuity = if (id == followedId) .16f else 0f
+                val score = confidence * (.58f * proximity + .42f * angular) + continuity
+                val candidate = Candidate(
+                    id,
+                    score,
+                    distance,
+                    Point(tangentX[i], tangentY[i]),
+                    confidence,
+                )
+                if (best == null || candidate.score > best!!.score) best = candidate
+            }
+        }
+        return best
+    }
+
+    /** Local contribution only; no query can reveal a location outside the brush footprint. */
+    fun weight(x: Int, y: Int, selectedId: Int?, strict: Boolean, strength: DirectionalStrength): Float {
+        if (selectedId == null) return if (strict) 0f else 1f
+        val i = index(x, y)
+        val label = labels[i]
+        if (label == selectedId) return 1f
+        if (label <= 0) return if (strict) 0f else 1f
+        if (strict) return 0f
+        // A neighbouring identified contour is attenuated, never selected automatically.
+        return strength.mismatchFloor.coerceIn(.05f, .65f)
     }
 }
 
