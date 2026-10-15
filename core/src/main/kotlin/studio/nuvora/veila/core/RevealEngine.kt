@@ -41,8 +41,11 @@ class RevealEngine(
     private var brush = Brush()
     private var allowCompletionRollback = false
     private var directionalGuide: DirectionalGuide? = null
+    private var traitIsolationMap: TraitIsolationMap? = null
     private var lastDirection: Point? = null
     private var followedTangent: Point? = null
+    /** Reset on pen-up: a new contact is always free to select another contour. */
+    private var selectedTraitId: Int? = null
     private data class CompletionRollback(val edit: Edit, val past: List<Edit>, val future: List<Edit>)
     private var completionRollback: CompletionRollback? = null
     var revision = 0L
@@ -89,6 +92,7 @@ class RevealEngine(
         erase = erasing
         lastDirection = null
         followedTangent = null
+        selectedTraitId = null
         allowCompletionRollback = cancellableCompletion
         move(point, pressure)
     }
@@ -103,6 +107,7 @@ class RevealEngine(
         val direction =
             if (length >= 1.25f) Point(delta!!.x / length, delta.y / length).also { lastDirection = it }
             else lastDirection
+        if (!erase && brush.strokeIsolation) selectTrait(point, direction, radius)
         capsule(previous ?: point, point, radius, strength, direction)
         if (!erase && brush.directionalReveal && direction != null)
             directionalGuide?.tangentAt(point)?.let { followedTangent = it }
@@ -116,6 +121,33 @@ class RevealEngine(
 
     fun setDirectionalGuide(guide: DirectionalGuide?) {
         if (!inStroke) directionalGuide = guide
+    }
+
+    fun setTraitIsolationMap(map: TraitIsolationMap?) {
+        if (!inStroke) traitIsolationMap = map
+    }
+
+    private fun selectTrait(point: Point, direction: Point?, radius: Float) {
+        val map = traitIsolationMap ?: return
+        val best = map.select(point, direction, selectedTraitId, radius) ?: return
+        val current = selectedTraitId
+        if (current == null || current == best.id) {
+            selectedTraitId = best.id
+            return
+        }
+        /*
+         * A trait remains preferred through an intersection.  We only hand off when the new
+         * candidate clearly wins, or when the previous label has disappeared and the motion is
+         * coherent with the new one.  This allows a deliberate branch change without jitter.
+         */
+        val old = map.candidateFor(current, point, direction, radius)
+        val coherent = direction?.let { kotlin.math.abs(it.x * best.tangent.x + it.y * best.tangent.y) >= .62f }
+            ?: true
+        if (old == null) {
+            if (coherent && best.confidence >= .34f) selectedTraitId = best.id
+        } else if (best.score > old.score + .20f && coherent) {
+            selectedTraitId = best.id
+        }
     }
 
     private fun capsule(a: Point, b: Point, radius: Float, strength: Float, direction: Point?) {
@@ -156,7 +188,17 @@ class RevealEngine(
                     if (!erase && brush.directionalReveal)
                         directionalGuide?.weight(x, y, direction, followedTangent, brush.directionalStrength) ?: 1f
                     else 1f
-                val amount = (1000 * strength * coverage * assistance).roundToInt()
+                val isolation =
+                    if (!erase && brush.strokeIsolation)
+                        traitIsolationMap?.weight(
+                            x,
+                            y,
+                            selectedTraitId,
+                            brush.strictStrokeIsolation,
+                            brush.directionalStrength,
+                        ) ?: 1f
+                    else 1f
+                val amount = (1000 * strength * coverage * assistance * isolation).roundToInt()
                 if (amount == 0) continue
                 val base = original[(y - oy) * tw + x - ox].toInt()
                 val value =
@@ -183,6 +225,7 @@ class RevealEngine(
         previous = null
         lastDirection = null
         followedTangent = null
+        selectedTraitId = null
         val diffs =
             saved.mapNotNull { (id, before) ->
                 val after = mask.copyTile(id)
@@ -227,6 +270,7 @@ class RevealEngine(
         previous = null
         lastDirection = null
         followedTangent = null
+        selectedTraitId = null
     }
 
     fun undo(): Boolean {
