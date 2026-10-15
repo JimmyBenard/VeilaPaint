@@ -22,7 +22,8 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
-      - name: Restore historical signing key
+      - name: Restore historical signing key when configured
+        if: ${{ secrets.VEILA_KEYSTORE_BASE64 != '' && secrets.VEILA_KEY_ALIAS != '' && secrets.VEILA_STORE_PASSWORD != '' && secrets.VEILA_KEY_PASSWORD != '' }}
         env:
           VEILA_KEYSTORE_BASE64: ${{ secrets.VEILA_KEYSTORE_BASE64 }}
           VEILA_KEY_ALIAS: ${{ secrets.VEILA_KEY_ALIAS }}
@@ -31,9 +32,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for required in VEILA_KEYSTORE_BASE64 VEILA_KEY_ALIAS VEILA_STORE_PASSWORD VEILA_KEY_PASSWORD; do
-            test -n "${!required}" || { echo "::error::GitHub Secret $required manquant"; exit 1; }
-          done
           mkdir -p signing
           printf '%s' "$VEILA_KEYSTORE_BASE64" | base64 --decode > signing/veila-development.jks
           test "$(sha256sum signing/veila-development.jks | cut -d' ' -f1)" = "5033f9fd0fd24fa65cdf7851b12828979651836f225fd9d8539d62f0a96da07a"
@@ -62,13 +60,20 @@ jobs:
           mkdir -p dist
           cp app/build/outputs/apk/debug/app-debug.apk dist/VeilaPaint-0.7.1-debug.apk
       - name: Verify package, signature and matching source
+        id: verify
         shell: bash
         run: |
           set -euo pipefail
           apk=dist/VeilaPaint-0.7.1-debug.apk
           test -s "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk" | tee /tmp/apksigner.txt
-          grep -qi "47238C492BA3D8E9C63B589F1FCD28DE52EAD696CD68DACD0A91D40D61ED57E5" /tmp/apksigner.txt
+          if test -f signing/veila-development.jks; then
+            grep -qi "47238C492BA3D8E9C63B589F1FCD28DE52EAD696CD68DACD0A91D40D61ED57E5" /tmp/apksigner.txt
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Validation compilée avec la clé debug Android : APK non publiable comme mise à jour."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | tee /tmp/badging.txt
           grep -q "package: name='studio.nuvora.veila' versionCode='12' versionName='0.7.1'" /tmp/badging.txt
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 "$apk"
@@ -76,6 +81,7 @@ jobs:
           git archive --format=zip --prefix=VeilaPaint-0.7.1/ --output=dist/VeilaPaint-0.7.1-source.zip "$GITHUB_SHA"
           sha256sum dist/VeilaPaint-0.7.1-debug.apk dist/VeilaPaint-0.7.1-source.zip | tee dist/SHA256SUMS.txt
       - name: Upload APK
+        if: ${{ steps.verify.outputs.signed == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: VeilaPaint-0.7.1-debug
@@ -85,6 +91,18 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
+      - name: Upload unsigned verification package
+        if: ${{ steps.verify.outputs.signed != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: VeilaPaint-0.7.1-verification-only
+          path: |
+            dist/SHA256SUMS.txt
+            core/build/reports/tests/
+            app/build/reports/tests/
+            app/build/reports/lint-results-debug.*
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload matching source archive
         uses: actions/upload-artifact@v4
         with:
