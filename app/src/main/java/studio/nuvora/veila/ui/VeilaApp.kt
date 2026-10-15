@@ -12,7 +12,11 @@ import studio.nuvora.veila.*
 fun VeilaApp(model: VeilaModel, activity: Activity) {
     MaterialTheme(colorScheme = VeilaColors) {
         Surface(Modifier.fillMaxSize(), color = Ink) {
-            Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+            // The Atelier renders its own status bar and therefore owns its edge-to-edge area.
+            val contentModifier =
+                if (model.screen == Screen.STUDIO) Modifier.fillMaxSize()
+                else Modifier.fillMaxSize().safeDrawingPadding()
+            Box(contentModifier) {
                 when (model.screen) {
                     Screen.PROJECTS -> ProjectsScreen(model)
                     Screen.PREPARATION -> PreparationScreen(model)
