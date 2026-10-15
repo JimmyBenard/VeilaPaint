@@ -37,7 +37,9 @@ android {
     buildTypes {
         create("standalone") {
             initWith(getByName("debug"))
-            applicationIdSuffix = ".standalone"
+            // Each Veila Paint delivery is an independent Android application.
+            // The version-specific suffix prevents it from replacing an earlier APK.
+            applicationIdSuffix = ".v072"
             manifestPlaceholders["appLabel"] = "Veila Paint 0.7.2"
             matchingFallbacks += "debug"
         }

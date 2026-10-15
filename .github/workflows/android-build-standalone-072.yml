@@ -12,8 +12,6 @@ jobs:
   verify-and-build:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    env:
-      VEILA_SIGNING_CONFIGURED: ${{ secrets.VEILA_KEYSTORE_BASE64 != '' && secrets.VEILA_KEY_ALIAS != '' && secrets.VEILA_STORE_PASSWORD != '' && secrets.VEILA_KEY_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,21 +22,6 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: gradle
-      - name: Restore historical signing key
-        if: env.VEILA_SIGNING_CONFIGURED == 'true'
-        env:
-          VEILA_KEYSTORE_BASE64: ${{ secrets.VEILA_KEYSTORE_BASE64 }}
-          VEILA_KEY_ALIAS: ${{ secrets.VEILA_KEY_ALIAS }}
-          VEILA_STORE_PASSWORD: ${{ secrets.VEILA_STORE_PASSWORD }}
-          VEILA_KEY_PASSWORD: ${{ secrets.VEILA_KEY_PASSWORD }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p signing
-          printf '%s' "$VEILA_KEYSTORE_BASE64" | base64 --decode > signing/veila-development.jks
-          test "$(sha256sum signing/veila-development.jks | cut -d' ' -f1)" = "5033f9fd0fd24fa65cdf7851b12828979651836f225fd9d8539d62f0a96da07a"
-          keytool -exportcert -keystore signing/veila-development.jks -alias "$VEILA_KEY_ALIAS" -storepass:env VEILA_STORE_PASSWORD > /tmp/veila-cert.der
-          test "$(sha256sum /tmp/veila-cert.der | cut -d' ' -f1 | tr '[:lower:]' '[:upper:]')" = "47238C492BA3D8E9C63B589F1FCD28DE52EAD696CD68DACD0A91D40D61ED57E5"
       - name: Install Android SDK 35
         shell: bash
         run: |
@@ -55,28 +38,22 @@ jobs:
           set -euo pipefail
           curl --fail --location --retry 3 https://services.gradle.org/distributions/gradle-8.11.1-bin.zip --output /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /opt
-      - name: Test, lint and assemble signed debug APK
-        env:
-          VEILA_KEY_ALIAS: ${{ secrets.VEILA_KEY_ALIAS }}
-          VEILA_STORE_PASSWORD: ${{ secrets.VEILA_STORE_PASSWORD }}
-          VEILA_KEY_PASSWORD: ${{ secrets.VEILA_KEY_PASSWORD }}
+      - name: Test, lint and assemble independent APK
         shell: bash
         run: |
           set -euo pipefail
-          test "$VEILA_SIGNING_CONFIGURED" = "true" || { echo "La clé historique Veila est requise pour publier une mise à jour installable." >&2; exit 1; }
-          /opt/gradle-8.11.1/bin/gradle --no-daemon --console=plain :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+          /opt/gradle-8.11.1/bin/gradle --no-daemon --console=plain :core:test :app:testDebugUnitTest :app:lintStandalone :app:assembleStandalone
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/VeilaPaint-0.7.2-debug.apk
+          cp app/build/outputs/apk/standalone/app-standalone.apk dist/VeilaPaint-0.7.2.apk
       - name: Verify package, signature and matching source
         shell: bash
         run: |
           set -euo pipefail
-          apk=dist/VeilaPaint-0.7.2-debug.apk
+          apk=dist/VeilaPaint-0.7.2.apk
           test -s "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk" | tee /tmp/apksigner.txt
-          grep -qi "47238C492BA3D8E9C63B589F1FCD28DE52EAD696CD68DACD0A91D40D61ED57E5" /tmp/apksigner.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | tee /tmp/badging.txt
-          grep -q "package: name='studio.nuvora.veila' versionCode='13' versionName='0.7.2'" /tmp/badging.txt
+          grep -q "package: name='studio.nuvora.veila.v072' versionCode='13' versionName='0.7.2'" /tmp/badging.txt
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 "$apk"
           git diff --exit-code HEAD
           git archive --format=zip --prefix=VeilaPaint-0.7.2/ --output=dist/VeilaPaint-0.7.2-source.zip "$GITHUB_SHA"
@@ -84,9 +61,9 @@ jobs:
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: VeilaPaint-0.7.2-debug
+          name: VeilaPaint-0.7.2
           path: |
-            dist/VeilaPaint-0.7.2-debug.apk
+            dist/VeilaPaint-0.7.2.apk
             dist/SHA256SUMS.txt
           if-no-files-found: error
           compression-level: 0
@@ -100,6 +77,3 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
-      - name: Remove temporary signing material
-        if: always()
-        run: rm -f signing/veila-development.jks /tmp/veila-cert.der
