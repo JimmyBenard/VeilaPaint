@@ -105,7 +105,7 @@ fun StudioScreen(model: VeilaModel, session: StudioSession, activity: Activity) 
         }
     }
     Column(Modifier.fillMaxSize()) {
-        BoxWithConstraints(Modifier.fillMaxWidth().background(Panel)) {
+        Box(Modifier.fillMaxWidth().background(Panel)) {
             Column {
                 SimulatedStatusBar(
                     simulatedEpochMillis = status.simulatedTime,
