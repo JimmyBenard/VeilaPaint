@@ -77,7 +77,7 @@ data class Project(
 
     fun json() =
         JSONObject().apply {
-            put("schema", 6)
+            put("schema", 7)
             put("id", id)
             put("name", name)
             put("created", created)
@@ -113,7 +113,9 @@ data class Project(
                     .put("pressureIntensity", brush.pressureIntensity)
                     .put("sideButtonEraser", brush.sideButtonEraser)
                     .put("directionalReveal", brush.directionalReveal)
-                    .put("directionalStrength", brush.directionalStrength.name),
+                    .put("directionalStrength", brush.directionalStrength.name)
+                    .put("strokeIsolation", brush.strokeIsolation)
+                    .put("strictStrokeIsolation", brush.strictStrokeIsolation),
             )
             put(
                 "camera",
@@ -144,7 +146,7 @@ data class Project(
 
     companion object {
         fun fromJson(j: JSONObject): Project {
-            require(j.getInt("schema") in 1..6)
+            require(j.getInt("schema") in 1..7)
             val b = j.getJSONObject("brush")
             val c = j.getJSONObject("camera")
             val list = j.getJSONArray("stages")
@@ -236,6 +238,9 @@ data class Project(
                     runCatching {
                         DirectionalStrength.valueOf(b.optString("directionalStrength", "MODERATE"))
                     }.getOrDefault(DirectionalStrength.MODERATE),
+                    // New 0.7.1 assistance remains opt-in for every existing project.
+                    b.optBoolean("strokeIsolation", false),
+                    b.optBoolean("strictStrokeIsolation", false),
                 ),
                 camera = cam,
                 mouseEnabled = j.optBoolean("mouseEnabled"),
