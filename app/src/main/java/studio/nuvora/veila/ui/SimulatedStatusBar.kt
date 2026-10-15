@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -25,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -34,7 +36,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import studio.nuvora.veila.duration
 import studio.nuvora.veila.studio.formatSimulatedStatusDate
 import studio.nuvora.veila.studio.formatStatusBarTime
 
@@ -126,10 +127,10 @@ private fun WifiIcon() = Canvas(Modifier.size(17.dp)) {
 @Composable
 private fun BatteryIcon(percent: Int, charging: Boolean) = Canvas(Modifier.width(22.dp).height(13.dp)) {
     val stroke = 1.2.dp.toPx()
-    drawRoundRect(Color.White, Offset(0f, 0f), Size(size.width - 3.dp.toPx(), size.height), 2.dp.toPx(), 2.dp.toPx(), style = Stroke(stroke))
-    drawRoundRect(Color.White, Offset(size.width - 2.2.dp.toPx(), size.height * .32f), Size(2.2.dp.toPx(), size.height * .36f), 1.dp.toPx(), 1.dp.toPx())
+    drawRoundRect(Color.White, Offset(0f, 0f), Size(size.width - 3.dp.toPx(), size.height), CornerRadius(2.dp.toPx()), style = Stroke(stroke))
+    drawRoundRect(Color.White, Offset(size.width - 2.2.dp.toPx(), size.height * .32f), Size(2.2.dp.toPx(), size.height * .36f), CornerRadius(1.dp.toPx()))
     val fill = ((size.width - 3.dp.toPx() - 2 * stroke) * (percent / 100f)).coerceAtLeast(0f)
-    if (fill > 0f) drawRoundRect(Color.White, Offset(stroke, stroke), Size(fill, size.height - 2 * stroke), 1.dp.toPx(), 1.dp.toPx())
+    if (fill > 0f) drawRoundRect(Color.White, Offset(stroke, stroke), Size(fill, size.height - 2 * stroke), CornerRadius(1.dp.toPx()))
     if (charging) {
         val bolt = Path().apply {
             moveTo(size.width * .56f, size.height * .12f); lineTo(size.width * .38f, size.height * .53f)
