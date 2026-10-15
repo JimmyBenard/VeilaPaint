@@ -129,7 +129,7 @@ class RevealRenderer(private val view: RevealView, private val session: StudioSe
                 lower = composeLayers(project, 0, step, states)
                 upper = composeLayers(project, step + 1, project.stages.size, states)
                 active = decode(project.stages[step].image)
-                val directionalGuide = DirectionalGuideAnalyzer.build(active, lower)
+                val assistanceMaps = DirectionalGuideAnalyzer.buildMaps(active, lower)
                 val activeBitmap = active
                 val lowerBitmap = lower
                 val upperBitmap = upper
@@ -139,7 +139,8 @@ class RevealRenderer(private val view: RevealView, private val session: StudioSe
                             uploadBitmap(currentTexture, lowerBitmap!!)
                             uploadBitmap(followingTexture, activeBitmap!!)
                             uploadBitmap(upperTexture, upperBitmap!!)
-                            session.engine.setDirectionalGuide(directionalGuide)
+                            session.engine.setDirectionalGuide(assistanceMaps.directionalGuide)
+                            session.engine.setTraitIsolationMap(assistanceMaps.traitIsolationMap)
                             renderedStep = step
                             loadingStep = -1
                             session.engine.mask.markAllDirty()
