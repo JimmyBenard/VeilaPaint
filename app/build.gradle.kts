@@ -35,11 +35,10 @@ android {
         }
     }
     buildTypes {
-        create("preview") {
+        create("standalone") {
             initWith(getByName("debug"))
-            applicationIdSuffix = ".preview"
-            versionNameSuffix = "-preview"
-            manifestPlaceholders["appLabel"] = "Veila Paint · Essai"
+            applicationIdSuffix = ".standalone"
+            manifestPlaceholders["appLabel"] = "Veila Paint 0.7.1"
             matchingFallbacks += "debug"
         }
     }
