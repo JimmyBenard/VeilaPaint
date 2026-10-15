@@ -11,8 +11,8 @@ android {
         applicationId = "studio.nuvora.veila"
         minSdk = 29
         targetSdk = 35
-        versionCode = 12
-        versionName = "0.7.1"
+        versionCode = 13
+        versionName = "0.7.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["appLabel"] = "Veila Paint"
     }
@@ -38,7 +38,7 @@ android {
         create("standalone") {
             initWith(getByName("debug"))
             applicationIdSuffix = ".standalone"
-            manifestPlaceholders["appLabel"] = "Veila Paint 0.7.1"
+            manifestPlaceholders["appLabel"] = "Veila Paint 0.7.2"
             matchingFallbacks += "debug"
         }
     }
