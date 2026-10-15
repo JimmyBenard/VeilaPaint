@@ -47,8 +47,8 @@ fun Brand(compact: Boolean = false) {
             Image(
                 painterResource(R.drawable.veila_logo),
                 "Veila Paint",
-                Modifier.width(224.dp).height(80.dp),
-                contentScale = ContentScale.Crop,
+                Modifier.width(248.dp).height(92.dp),
+                contentScale = ContentScale.Fit,
             )
             Text("by Nuvora Studio", color = Muted, fontSize = 12.sp, letterSpacing = 1.sp)
         }
