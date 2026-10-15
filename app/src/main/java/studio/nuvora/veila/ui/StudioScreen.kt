@@ -569,10 +569,7 @@ private fun BrushPanel(view: RevealView, status: StudioStatus) {
         view.submit {
             view.session.project =
                 view.session.project.copy(
-                    brush = brush.copy(
-                        strokeIsolation = enabled,
-                        strictStrokeIsolation = if (enabled) brush.strictStrokeIsolation else false,
-                    ),
+                    brush = brush.copy(strokeIsolation = enabled),
                 )
             view.session.save()
         }
