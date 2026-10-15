@@ -523,8 +523,8 @@ private fun BrushPanel(view: RevealView, status: StudioStatus) {
         }
     }
     HorizontalDivider(color = Line)
-    Text("RÉVÉLATION DIRECTIONNELLE", color = Cyan, fontSize = 12.sp, letterSpacing = 1.sp)
-    SwitchRow("Activée", brush.directionalReveal) { enabled ->
+    Text("ASSISTANCE DIRECTIONNELLE", color = Cyan, fontSize = 12.sp, letterSpacing = 1.sp)
+    SwitchRow("Révélation directionnelle", brush.directionalReveal) { enabled ->
         view.submit {
             view.session.project =
                 view.session.project.copy(brush = brush.copy(directionalReveal = enabled))
@@ -563,6 +563,35 @@ private fun BrushPanel(view: RevealView, status: StudioStatus) {
         color = Muted,
         fontSize = 11.sp,
     )
+    HorizontalDivider(color = Line)
+    Text("ISOLATION DES TRAITS", color = Cyan, fontSize = 12.sp, letterSpacing = 1.sp)
+    SwitchRow("Isolation des traits", brush.strokeIsolation) { enabled ->
+        view.submit {
+            view.session.project =
+                view.session.project.copy(
+                    brush = brush.copy(
+                        strokeIsolation = enabled,
+                        strictStrokeIsolation = if (enabled) brush.strictStrokeIsolation else false,
+                    ),
+                )
+            view.session.save()
+        }
+    }
+    if (brush.strokeIsolation) {
+        SwitchRow("Isolation stricte", brush.strictStrokeIsolation) { strict ->
+            view.submit {
+                view.session.project =
+                    view.session.project.copy(brush = brush.copy(strictStrokeIsolation = strict))
+                view.session.save()
+            }
+        }
+        Text(
+            "Le trait suivi est conservé pendant le mouvement. Le mode strict masque les " +
+                "contours voisins et suspend l’aide dans les zones ambiguës.",
+            color = Muted,
+            fontSize = 11.sp,
+        )
+    }
     Text(
         "La taille reste liée à la toile. Le mode Gomme, près d’Enregistrer, inverse le dévoilement sur le seul calque actif.",
         color = Muted,
