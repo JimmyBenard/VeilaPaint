@@ -30,6 +30,8 @@ import kotlinx.coroutines.delay
 import studio.nuvora.veila.*
 import studio.nuvora.veila.core.RecordingState
 import studio.nuvora.veila.studio.*
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 
 enum class StudioPanel {
     STEPS,
@@ -103,15 +105,29 @@ fun StudioScreen(model: VeilaModel, session: StudioSession, activity: Activity) 
     }
     Column(Modifier.fillMaxSize()) {
         BoxWithConstraints(Modifier.fillMaxWidth().background(Panel)) {
-            val narrow = maxWidth < 700.dp
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Column {
+                SimulatedStatusBar(
+                    simulatedEpochMillis = status.simulatedTime,
+                    workMillis = status.time,
+                    onResetDate = { confirmDateReset = true },
+                    onResetWorkTime = { confirmTimeReset = true },
+                )
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Row(
                     Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     SmallButton("‹", "Quitter et sauvegarder le projet") { requestExit() }
-                    if (!narrow) Brand(compact = true)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Image(
+                            painterResource(R.drawable.veila_logo),
+                            "Veila Paint",
+                            Modifier.width(140.dp).height(54.dp),
+                            contentScale = ContentScale.Fit,
+                        )
+                        Text("par Nuvora Labs", color = Muted, fontSize = 10.sp, letterSpacing = .5.sp)
+                    }
                     Column(Modifier.weight(1f)) {
                         Text(
                             status.project.name,
@@ -125,7 +141,6 @@ fun StudioScreen(model: VeilaModel, session: StudioSession, activity: Activity) 
                             fontSize = 12.sp,
                             maxLines = 1,
                         )
-                        Text("par Nuvora Studio", color = Muted, fontSize = 10.sp, letterSpacing = .5.sp)
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         when {
@@ -141,26 +156,6 @@ fun StudioScreen(model: VeilaModel, session: StudioSession, activity: Activity) 
                             status.recording == RecordingState.RECORDING ->
                                 Text("● REC", color = Color(0xFFFF8CB5), fontSize = 14.sp)
                         }
-                        Text(
-                            duration(status.time),
-                            color = Cyan,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            modifier =
-                                Modifier.clickable { confirmTimeReset = true }.semantics {
-                                    contentDescription = "Réinitialiser le temps simulé"
-                                },
-                        )
-                        Text(
-                            formatAtelierDateTime(activity, status.simulatedTime),
-                            color = Cyan,
-                            fontSize = 10.sp,
-                            maxLines = 1,
-                            modifier =
-                                Modifier.clickable { confirmDateReset = true }.semantics {
-                                    contentDescription = "Réinitialiser la date simulée"
-                                },
-                        )
                     }
                 }
                 Row(
@@ -251,6 +246,7 @@ fun StudioScreen(model: VeilaModel, session: StudioSession, activity: Activity) 
                             Text("Arrêter")
                         }
                     }
+                }
                 }
             }
         }
