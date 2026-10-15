@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.sp
 import studio.nuvora.veila.studio.formatSimulatedStatusDate
 import studio.nuvora.veila.studio.formatStatusBarTime
 
-private data class BatteryStatus(val percent: Int, val charging: Boolean)
+private data class BatteryStatus(val percent: Int?, val charging: Boolean)
 
 @Composable
 private fun rememberBatteryStatus(): BatteryStatus {
@@ -61,7 +61,7 @@ private fun rememberBatteryStatus(): BatteryStatus {
 private fun batteryStatus(intent: Intent?): BatteryStatus {
     val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
     val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-    val percent = if (level >= 0 && scale > 0) (level * 100 / scale).coerceIn(0, 100) else 0
+    val percent = if (level >= 0 && scale > 0) (level * 100 / scale).coerceIn(0, 100) else null
     val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, 0) ?: 0
     return BatteryStatus(percent, status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL)
 }
@@ -73,14 +73,12 @@ fun SimulatedStatusBar(
     onResetDate: () -> Unit,
     onResetWorkTime: () -> Unit,
 ) {
-    val context = LocalContext.current
     val battery = rememberBatteryStatus()
     Row(
         Modifier.fillMaxWidth().height(32.dp).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Text(formatStatusBarTime(context), color = Color.White, fontSize = 13.sp)
         Text(
             formatSimulatedStatusDate(simulatedEpochMillis),
             color = Color.White,
@@ -90,13 +88,13 @@ fun SimulatedStatusBar(
         Spacer(Modifier.weight(1f))
         SilentIcon()
         Text(
-            duration(workMillis),
+            formatStatusBarTime(simulatedEpochMillis),
             color = Color.White,
             fontSize = 12.sp,
             modifier = Modifier.clickable(onClick = onResetWorkTime).semantics { contentDescription = "Réinitialiser le temps simulé" },
         )
         WifiIcon()
-        Text("${battery.percent}%", color = Color.White, fontSize = 13.sp)
+        Text(battery.percent?.let { "$it%" } ?: "—", color = Color.White, fontSize = 13.sp)
         BatteryIcon(battery.percent, battery.charging)
     }
 }
@@ -125,11 +123,11 @@ private fun WifiIcon() = Canvas(Modifier.size(17.dp)) {
 }
 
 @Composable
-private fun BatteryIcon(percent: Int, charging: Boolean) = Canvas(Modifier.width(22.dp).height(13.dp)) {
+private fun BatteryIcon(percent: Int?, charging: Boolean) = Canvas(Modifier.width(22.dp).height(13.dp)) {
     val stroke = 1.2.dp.toPx()
     drawRoundRect(Color.White, Offset(0f, 0f), Size(size.width - 3.dp.toPx(), size.height), CornerRadius(2.dp.toPx()), style = Stroke(stroke))
     drawRoundRect(Color.White, Offset(size.width - 2.2.dp.toPx(), size.height * .32f), Size(2.2.dp.toPx(), size.height * .36f), CornerRadius(1.dp.toPx()))
-    val fill = ((size.width - 3.dp.toPx() - 2 * stroke) * (percent / 100f)).coerceAtLeast(0f)
+    val fill = percent?.let { ((size.width - 3.dp.toPx() - 2 * stroke) * (it / 100f)).coerceAtLeast(0f) } ?: 0f
     if (fill > 0f) drawRoundRect(Color.White, Offset(stroke, stroke), Size(fill, size.height - 2 * stroke), CornerRadius(1.dp.toPx()))
     if (charging) {
         val bolt = Path().apply {
