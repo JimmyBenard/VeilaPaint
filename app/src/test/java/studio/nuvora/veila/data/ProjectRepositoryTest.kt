@@ -240,6 +240,32 @@ class ProjectRepositoryTest {
     }
 
     @Test
+    fun strokeIsolationSettingsPersistAndOlderProjectsDefaultToClassicBrush() {
+        val configured =
+            imported(2).copy(
+                brush = Brush(
+                    directionalReveal = true,
+                    directionalStrength = DirectionalStrength.HIGH,
+                    strokeIsolation = true,
+                    strictStrokeIsolation = true,
+                ),
+            )
+        val restored = Project.fromJson(configured.json())
+        assertTrue(restored.brush.strokeIsolation)
+        assertTrue(restored.brush.strictStrokeIsolation)
+        assertEquals(DirectionalStrength.HIGH, restored.brush.directionalStrength)
+
+        val legacy = configured.json().apply {
+            put("schema", 6)
+            getJSONObject("brush").remove("strokeIsolation")
+            getJSONObject("brush").remove("strictStrokeIsolation")
+        }
+        val migrated = Project.fromJson(legacy)
+        assertFalse(migrated.brush.strokeIsolation)
+        assertFalse(migrated.brush.strictStrokeIsolation)
+    }
+
+    @Test
     fun versionOneProjectsOpenWithUprightCameraAndSafeButtonDefault() {
         val p = imported(2)
         val json = p.json()
