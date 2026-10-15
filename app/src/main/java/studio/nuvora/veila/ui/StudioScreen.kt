@@ -28,6 +28,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.delay
 import studio.nuvora.veila.*
+import studio.nuvora.veila.R
 import studio.nuvora.veila.core.RecordingState
 import studio.nuvora.veila.studio.*
 import androidx.compose.ui.layout.ContentScale
