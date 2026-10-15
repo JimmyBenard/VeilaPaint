@@ -14,16 +14,22 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class AtelierClockTest {
     @Test
-    fun usesAndroidClockPreferenceAndUpdatesWithTheCivilMinute() {
+    fun statusBarTimeUsesAndroidClockPreferenceWithoutSeconds() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val time = Calendar.getInstance().apply { set(2026, Calendar.SEPTEMBER, 7, 13, 28, 0) }.timeInMillis
         Settings.System.putString(context.contentResolver, Settings.System.TIME_12_24, "24")
-        val twentyFour = formatAtelierDateTime(context, time)
+        val twentyFour = formatStatusBarTime(context, time)
         assertTrue(twentyFour.contains("13:28"))
-        assertNotEquals(twentyFour, formatAtelierDateTime(context, time + 60_000))
+        assertFalse(twentyFour.contains(":00"))
+        assertNotEquals(twentyFour, formatStatusBarTime(context, time + 60_000))
         Settings.System.putString(context.contentResolver, Settings.System.TIME_12_24, "12")
-        val twelve = formatAtelierDateTime(context, time)
+        val twelve = formatStatusBarTime(context, time)
         assertTrue(twelve.contains("1:28"))
         assertFalse(twelve.contains("13:28"))
+    }
+
+    @Test fun formatsTheSimulatedDateForTheStatusBarInFrench() {
+        val time = Calendar.getInstance().apply { set(2026, Calendar.OCTOBER, 15, 13, 28, 0) }.timeInMillis
+        assertEquals("jeu. 15 oct.", formatSimulatedStatusDate(time))
     }
 }
