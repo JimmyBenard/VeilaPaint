@@ -1,4 +1,4 @@
-name: Veila Paint 0.7.2 autonome
+name: Veila Paint 0.7.2 APK
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  build-standalone-apk:
+  verify-and-build:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -38,22 +38,22 @@ jobs:
           set -euo pipefail
           curl --fail --location --retry 3 https://services.gradle.org/distributions/gradle-8.11.1-bin.zip --output /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /opt
-      - name: Test, lint and assemble standalone APK
+      - name: Test, lint and assemble debug APK
         shell: bash
         run: |
           set -euo pipefail
-          /opt/gradle-8.11.1/bin/gradle --no-daemon --console=plain :core:test :app:testDebugUnitTest :app:lintStandalone :app:assembleStandalone
+          /opt/gradle-8.11.1/bin/gradle --no-daemon --console=plain :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
           mkdir -p dist
-          cp app/build/outputs/apk/standalone/app-standalone.apk dist/VeilaPaint-0.7.2-standalone.apk
-      - name: Verify standalone package
+          cp app/build/outputs/apk/debug/app-debug.apk dist/VeilaPaint-0.7.2-debug.apk
+      - name: Verify debug package
         shell: bash
         run: |
           set -euo pipefail
-          apk=dist/VeilaPaint-0.7.2-standalone.apk
+          apk=dist/VeilaPaint-0.7.2-debug.apk
           test -s "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | tee /tmp/badging.txt
-          grep -q "package: name='studio.nuvora.veila.standalone' versionCode='13' versionName='0.7.2'" /tmp/badging.txt
+          grep -q "package: name='studio.nuvora.veila' versionCode='13' versionName='0.7.2'" /tmp/badging.txt
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 "$apk"
           git diff --exit-code HEAD
           git archive --format=zip --prefix=VeilaPaint-0.7.2/ --output=dist/VeilaPaint-0.7.2-source.zip "$GITHUB_SHA"
@@ -61,9 +61,9 @@ jobs:
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: VeilaPaint-0.7.2-standalone
+          name: VeilaPaint-0.7.2-debug
           path: |
-            dist/VeilaPaint-0.7.2-standalone.apk
+            dist/VeilaPaint-0.7.2-debug.apk
             dist/SHA256SUMS.txt
           if-no-files-found: error
           compression-level: 0
@@ -71,7 +71,7 @@ jobs:
       - name: Upload matching source archive
         uses: actions/upload-artifact@v4
         with:
-          name: VeilaPaint-0.7.2-standalone-source
+          name: VeilaPaint-0.7.2-source
           path: |
             dist/VeilaPaint-0.7.2-source.zip
             dist/SHA256SUMS.txt
