@@ -26,6 +26,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import kotlinx.coroutines.delay
 import studio.nuvora.veila.*
 import studio.nuvora.veila.R
@@ -63,6 +65,11 @@ fun StudioScreen(model: VeilaModel, session: StudioSession, activity: Activity) 
             session.save()
         }
         panel = if (panel == which) null else which
+    }
+    DisposableEffect(activity) {
+        val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+        controller.hide(WindowInsetsCompat.Type.statusBars())
+        onDispose { controller.show(WindowInsetsCompat.Type.statusBars()) }
     }
     DisposableEffect(surface, lifecycle) {
         activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -104,7 +111,7 @@ fun StudioScreen(model: VeilaModel, session: StudioSession, activity: Activity) 
             surface.submit { session.tick() }
         }
     }
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout)) {
         Box(Modifier.fillMaxWidth().background(Panel)) {
             Column {
                 SimulatedStatusBar(
