@@ -1,3 +1,14 @@
+# 0.7.1
+
+- Pinceau classique : isolation locale individuelle des traits, avec suivi stable du contour,
+  atténuation souple ou exclusion stricte des voisins.
+- Carte d’assistance mise en cache par calque à partir de sa différence visuelle avec le
+  composite inférieur ; elle reste non destructive et le masque demeure la source de vérité.
+- Intersections : continuité privilégiée, choix conservateur dans les zones ambiguës et repli
+  immédiat vers le pinceau classique quand l’isolation est désactivée.
+- Les réglages d’isolation sont sauvegardés au schéma de projet 7 ; les projets précédents
+  restent inchangés jusqu’à l’activation explicite de l’option.
+
 # 0.4.0
 
 - Plan de travail partagé avec calques de dévoilement indépendants.
