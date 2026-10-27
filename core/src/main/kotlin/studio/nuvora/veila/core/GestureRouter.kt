@@ -95,6 +95,14 @@ class GestureRouter(
         if (maximum == 2 && !moved) twoFingerHoldClaimed = true
     }
 
+    /** A long one-finger shortcut takes over after cancelling its provisional brush dot. */
+    fun claimSingleFingerHold() {
+        if (painterTool == Tool.FINGER && painter != null) {
+            clearPainter()
+            blockedPainter = true
+        }
+    }
+
     fun handle(f: InputFrame): List<Gesture> {
         val out = mutableListOf<Gesture>()
         if (f.action == Action.CANCEL) {

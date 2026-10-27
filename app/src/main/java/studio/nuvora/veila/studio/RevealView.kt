@@ -5,8 +5,23 @@ import android.opengl.GLSurfaceView
 import android.os.Build
 import android.view.MotionEvent
 import android.view.ViewConfiguration
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import javax.microedition.khronos.egl.EGL10
 import studio.nuvora.veila.core.*
+
+data class CircularPalettePickerState(
+    val centerX: Float,
+    val centerY: Float,
+    val radius: Float,
+    val pipetteRadius: Float,
+    val pointerX: Float,
+    val pointerY: Float,
+    val selection: PaletteSelection,
+    val sampledArgb: Int?,
+    val pipetteSelected: Boolean,
+)
 
 class RevealView(context: Context, val session: StudioSession) : GLSurfaceView(context) {
     val painter = RevealRenderer(this, session)
@@ -19,6 +34,45 @@ class RevealView(context: Context, val session: StudioSession) : GLSurfaceView(c
             holdActive = true
             submit { session.beginTemporaryPreview() }
         }
+    }
+    var circularPalettePicker by mutableStateOf<CircularPalettePickerState?>(null)
+        private set
+    private var paletteHoldEligible = false
+    private var paletteHoldActive = false
+    private var palettePointerId = -1
+    private var paletteStartX = 0f
+    private var paletteStartY = 0f
+    private val paletteHold = Runnable {
+        if (!paletteHoldEligible || paletteHoldActive || palettePointerId < 0 || width <= 0 || height <= 0) return@Runnable
+        val density = resources.displayMetrics.density
+        val radius = 112f * density
+        val padding = 8f * density
+        val centerX = paletteStartX.coerceIn(radius + padding, width - radius - padding)
+        val centerY = paletteStartY.coerceIn(radius + padding, height - radius - padding)
+        val pipetteRadius = 27f * density
+        val sampled = session.sampleActivePixelAt(paletteStartX, paletteStartY, width, height)
+        val fallback = PaletteSelection(
+            session.project.paletteHue,
+            session.project.paletteSaturation,
+            session.project.paletteLight,
+        )
+        val dx = paletteStartX - centerX
+        val dy = paletteStartY - centerY
+        paletteHoldEligible = false
+        paletteHoldActive = true
+        circularPalettePicker =
+            CircularPalettePickerState(
+                centerX,
+                centerY,
+                radius,
+                pipetteRadius,
+                paletteStartX,
+                paletteStartY,
+                CircularPalettePicker.select(dx, dy, radius, pipetteRadius, fallback, sampled),
+                sampled,
+                CircularPalettePicker.isPipette(dx, dy, pipetteRadius) && sampled != null,
+            )
+        submit { session.beginCircularPalettePicker() }
     }
 
     init {
@@ -90,9 +144,101 @@ class RevealView(context: Context, val session: StudioSession) : GLSurfaceView(c
         }
     }
 
+    private fun cancelPaletteHoldCandidate() {
+        removeCallbacks(paletteHold)
+        paletteHoldEligible = false
+    }
+
+    private fun updateCircularPalettePicker(x: Float, y: Float) {
+        val state = circularPalettePicker ?: return
+        val dx = x - state.centerX
+        val dy = y - state.centerY
+        circularPalettePicker =
+            state.copy(
+                pointerX = x,
+                pointerY = y,
+                selection =
+                    CircularPalettePicker.select(
+                        dx,
+                        dy,
+                        state.radius,
+                        state.pipetteRadius,
+                        state.selection,
+                        state.sampledArgb,
+                    ),
+                pipetteSelected =
+                    CircularPalettePicker.isPipette(dx, dy, state.pipetteRadius) &&
+                        state.sampledArgb != null,
+            )
+    }
+
+    private fun finishCircularPalettePicker(commit: Boolean) {
+        val state = circularPalettePicker
+        cancelPaletteHoldCandidate()
+        paletteHoldActive = false
+        palettePointerId = -1
+        circularPalettePicker = null
+        submit { session.finishCircularPalettePicker(state?.selection, commit) }
+    }
+
+    /** Returns true only while the single-finger colour shortcut owns the contact. */
+    private fun trackCircularPalettePicker(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                if (AndroidInputMapper.tool(event, 0) == Tool.FINGER) {
+                    palettePointerId = event.getPointerId(0)
+                    paletteStartX = event.getX(0)
+                    paletteStartY = event.getY(0)
+                    paletteHoldEligible = true
+                    postDelayed(paletteHold, 420)
+                }
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (paletteHoldActive) finishCircularPalettePicker(commit = false)
+                else cancelPaletteHoldCandidate()
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val index = (0 until event.pointerCount).firstOrNull { event.getPointerId(it) == palettePointerId }
+                if (paletteHoldActive) {
+                    if (index == null) finishCircularPalettePicker(commit = false)
+                    else updateCircularPalettePicker(event.getX(index), event.getY(index))
+                    return true
+                }
+                if (paletteHoldEligible) {
+                    if (index == null) cancelPaletteHoldCandidate()
+                    else {
+                        val dx = event.getX(index) - paletteStartX
+                        val dy = event.getY(index) - paletteStartY
+                        if (dx * dx + dy * dy > holdSlop * holdSlop) cancelPaletteHoldCandidate()
+                    }
+                }
+            }
+            MotionEvent.ACTION_UP -> {
+                if (paletteHoldActive) {
+                    updateCircularPalettePicker(event.getX(event.actionIndex), event.getY(event.actionIndex))
+                    finishCircularPalettePicker(commit = true)
+                    return true
+                }
+                cancelPaletteHoldCandidate()
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                if (paletteHoldActive) {
+                    finishCircularPalettePicker(commit = false)
+                    return true
+                }
+                cancelPaletteHoldCandidate()
+            }
+        }
+        return false
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         parent?.requestDisallowInterceptTouchEvent(true)
         if (event.actionMasked == MotionEvent.ACTION_DOWN) requestUnbufferedDispatch(event)
+        if (trackCircularPalettePicker(event)) {
+            if (event.actionMasked == MotionEvent.ACTION_UP) performClick()
+            return true
+        }
         trackPreviewHold(event)
         val frames = AndroidInputMapper.frames(event)
         if (frames.isEmpty()) return true

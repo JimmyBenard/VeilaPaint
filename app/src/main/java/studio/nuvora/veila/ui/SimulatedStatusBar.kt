@@ -80,6 +80,12 @@ fun SimulatedStatusBar(
         horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Text(
+            formatStatusBarTime(simulatedEpochMillis),
+            color = Color.White,
+            fontSize = 12.sp,
+            modifier = Modifier.clickable(onClick = onResetWorkTime).semantics { contentDescription = "Réinitialiser le temps simulé" },
+        )
+        Text(
             formatSimulatedStatusDate(simulatedEpochMillis),
             color = Color.White,
             fontSize = 13.sp,
@@ -87,12 +93,6 @@ fun SimulatedStatusBar(
         )
         Spacer(Modifier.weight(1f))
         SilentIcon()
-        Text(
-            formatStatusBarTime(simulatedEpochMillis),
-            color = Color.White,
-            fontSize = 12.sp,
-            modifier = Modifier.clickable(onClick = onResetWorkTime).semantics { contentDescription = "Réinitialiser le temps simulé" },
-        )
         WifiIcon()
         Text(battery.percent?.let { "$it%" } ?: "—", color = Color.White, fontSize = 13.sp)
         BatteryIcon(battery.percent, battery.charging)

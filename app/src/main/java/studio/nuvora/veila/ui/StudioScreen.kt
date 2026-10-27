@@ -10,8 +10,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.onFocusChanged
@@ -35,6 +39,8 @@ import studio.nuvora.veila.core.RecordingState
 import studio.nuvora.veila.studio.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import kotlin.math.hypot
+import kotlin.math.min
 
 enum class StudioPanel {
     STEPS,
@@ -260,6 +266,9 @@ fun StudioScreen(model: VeilaModel, session: StudioSession, activity: Activity) 
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             AndroidView(factory = { surface }, modifier = Modifier.fillMaxSize())
+            surface.circularPalettePicker?.let { picker ->
+                CircularPalettePickerOverlay(picker)
+            }
             if (!status.ready && status.error == null)
                 Surface(
                     Modifier.align(Alignment.TopCenter).padding(12.dp),
@@ -415,6 +424,60 @@ fun StudioScreen(model: VeilaModel, session: StudioSession, activity: Activity) 
             },
             dismissButton = { TextButton({ confirmLeaveRecording = false }) { Text("Continuer") } },
         )
+    }
+}
+
+@Composable
+private fun CircularPalettePickerOverlay(state: CircularPalettePickerState) {
+    val density = LocalDensity.current
+    val diameter = with(density) { (state.radius * 2f).toDp() }
+    val left = with(density) { (state.centerX - state.radius).toDp() }
+    val top = with(density) { (state.centerY - state.radius).toDp() }
+    val selected = Color.hsv(state.selection.hue, state.selection.saturation, state.selection.value)
+    Canvas(
+        Modifier
+            .offset(left, top)
+            .size(diameter)
+            .semantics { contentDescription = "Sélecteur circulaire de couleur simulée" },
+    ) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val outerRadius = size.minDimension / 2f
+        val ringWidth = 26.dp.toPx()
+        drawCircle(Panel.copy(alpha = .96f), outerRadius, center)
+        for (segment in 0 until 120) {
+            drawArc(
+                Color.hsv(segment * 3f, 1f, 1f),
+                startAngle = segment * 3f - 90f,
+                sweepAngle = 3.6f,
+                useCenter = false,
+                topLeft = Offset(ringWidth / 2f, ringWidth / 2f),
+                size = Size(size.width - ringWidth, size.height - ringWidth),
+                style = Stroke(ringWidth),
+            )
+        }
+        drawCircle(Color.Black.copy(alpha = .24f), outerRadius - ringWidth * .62f, center)
+        val dx = state.pointerX - state.centerX
+        val dy = state.pointerY - state.centerY
+        val distance = hypot(dx, dy)
+        val bounded = min(distance, outerRadius - ringWidth * .6f)
+        val marker =
+            if (distance <= .1f) center
+            else Offset(center.x + dx / distance * bounded, center.y + dy / distance * bounded)
+        drawCircle(Color.White, 14.dp.toPx(), marker)
+        drawCircle(selected, 10.dp.toPx(), marker)
+        val pipetteRadius = state.pipetteRadius.coerceAtMost(outerRadius * .33f)
+        drawCircle(
+            if (state.pipetteSelected) Cyan.copy(alpha = .92f) else Panel,
+            pipetteRadius,
+            center,
+        )
+        drawCircle(Color.White.copy(alpha = .85f), pipetteRadius, center, style = Stroke(1.5.dp.toPx()))
+        val dropperStart = Offset(center.x - 7.dp.toPx(), center.y + 6.dp.toPx())
+        val dropperEnd = Offset(center.x + 7.dp.toPx(), center.y - 8.dp.toPx())
+        drawLine(Color.White, dropperStart, dropperEnd, 3.dp.toPx())
+        drawCircle(Color.White, 3.dp.toPx(), dropperEnd)
+        drawCircle(selected, 15.dp.toPx(), Offset(center.x, center.y + pipetteRadius + 22.dp.toPx()))
+        drawCircle(Color.White, 15.dp.toPx(), Offset(center.x, center.y + pipetteRadius + 22.dp.toPx()), style = Stroke(1.5.dp.toPx()))
     }
 }
 
@@ -626,7 +689,7 @@ private fun SettingsPanel(
     Text("Temps de travail : ${duration(status.time)}", color = Muted, fontSize = 12.sp)
     Text("Vitesse simulée", color = Cyan, fontSize = 12.sp, letterSpacing = 1.sp)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf(.5f, 1f, 2f, 5f).forEach { speed ->
+        listOf(.5f, 1f, 2f, 2.5f, 3f, 5f).forEach { speed ->
             FilterChip(
                 selected = p.workSpeed == speed,
                 onClick = { view.submit { view.session.setWorkSpeed(speed) } },

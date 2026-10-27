@@ -1,5 +1,8 @@
 package studio.nuvora.veila.studio
 
+import android.graphics.BitmapFactory
+import android.graphics.BitmapRegionDecoder
+import android.graphics.Rect
 import android.os.SystemClock
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
@@ -381,6 +384,51 @@ class StudioSession(val repository: ProjectRepository, loaded: LoadedProject) {
         project = project.copy(brush = project.brush.copy(size = valid))
         save()
         publish()
+    }
+
+    /** Cancels the provisional finger dot before the circular colour shortcut takes ownership. */
+    fun beginCircularPalettePicker() {
+        engine.cancel()
+        router.claimSingleFingerHold()
+        inputDiagnostic = "Sélecteur circulaire de couleur actif."
+        publish()
+    }
+
+    fun finishCircularPalettePicker(selection: PaletteSelection?, commit: Boolean) {
+        if (commit && selection != null) {
+            project =
+                project.copy(
+                    paletteHue = selection.hue.coerceIn(0f, 360f),
+                    paletteSaturation = selection.saturation.coerceIn(0f, 1f),
+                    paletteLight = selection.value.coerceIn(0f, 1f),
+                )
+            save()
+        }
+        router.reset()
+        publish()
+    }
+
+    /** Reads the active source pixel underneath the last contact; failure leaves the pipette simulated. */
+    fun sampleActivePixelAt(viewX: Float, viewY: Float, viewWidth: Int, viewHeight: Int): Int? {
+        if (!ready || project.stages.isEmpty() || viewWidth <= 0 || viewHeight <= 0) return null
+        val point = camera.imagePoint(viewX, viewY, viewWidth, viewHeight, project.width, project.height)
+        val x = point.x.toInt().coerceIn(0, project.width - 1)
+        val y = point.y.toInt().coerceIn(0, project.height - 1)
+        val file = repository.asset(project, project.stages[project.currentStep].image)
+        val decoder = BitmapRegionDecoder.newInstance(file.absolutePath, false) ?: return null
+        return try {
+            val pixel = decoder.decodeRegion(Rect(x, y, x + 1, y + 1), BitmapFactory.Options())
+                ?: return null
+            try {
+                pixel.getPixel(0, 0)
+            } finally {
+                pixel.recycle()
+            }
+        } catch (_: Exception) {
+            null
+        } finally {
+            decoder.recycle()
+        }
     }
 
     private fun toggleUnrevealedOverlay() {
