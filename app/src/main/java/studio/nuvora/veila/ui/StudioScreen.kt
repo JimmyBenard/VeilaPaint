@@ -157,6 +157,19 @@ fun StudioScreen(model: VeilaModel, session: StudioSession, activity: Activity) 
                         )
                     }
                     Column(horizontalAlignment = Alignment.End) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Cyan.copy(alpha = .16f),
+                            border = BorderStroke(1.dp, Cyan.copy(alpha = .5f)),
+                        ) {
+                            Text(
+                                "${status.strokeCount} ${if (status.strokeCount == 1L) "trait" else "traits"}",
+                                Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                         when {
                             shouldShowRevealProgress(status.recording, status.progressVisible) ->
                                 Text(

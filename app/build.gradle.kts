@@ -11,8 +11,8 @@ android {
         applicationId = "studio.nuvora.veila"
         minSdk = 29
         targetSdk = 35
-        versionCode = 14
-        versionName = "0.7.3"
+        versionCode = 15
+        versionName = "0.7.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["appLabel"] = "Veila Paint"
     }
@@ -39,8 +39,8 @@ android {
             initWith(getByName("debug"))
             // Each Veila Paint delivery is an independent Android application.
             // The version-specific suffix prevents it from replacing an earlier APK.
-            applicationIdSuffix = ".v073"
-            manifestPlaceholders["appLabel"] = "Veila Paint 0.7.3"
+            applicationIdSuffix = ".v074"
+            manifestPlaceholders["appLabel"] = "Veila Paint 0.7.4"
             matchingFallbacks += "debug"
         }
     }

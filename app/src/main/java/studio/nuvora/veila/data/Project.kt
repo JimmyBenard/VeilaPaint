@@ -50,6 +50,8 @@ data class Project(
     val overallProgress: Double = progress,
     val workMillis: Long = 0,
     val workSpeed: Float = 2f,
+    /** Number of completed single-contact reveal strokes in this project. */
+    val strokeCount: Long = 0,
     val brush: Brush = Brush(),
     /** Local reveal mask eraser; source images and other layers are never changed. */
     val eraserEnabled: Boolean = false,
@@ -77,7 +79,7 @@ data class Project(
 
     fun json() =
         JSONObject().apply {
-            put("schema", 7)
+            put("schema", 8)
             put("id", id)
             put("name", name)
             put("created", created)
@@ -90,6 +92,7 @@ data class Project(
             put("overallProgress", overallProgress)
             put("workMillis", workMillis)
             put("workSpeed", workSpeed)
+            put("strokeCount", strokeCount)
             put("eraserEnabled", eraserEnabled)
             put("paletteHue", paletteHue)
             put("paletteSaturation", paletteSaturation)
@@ -146,7 +149,7 @@ data class Project(
 
     companion object {
         fun fromJson(j: JSONObject): Project {
-            require(j.getInt("schema") in 1..7)
+            require(j.getInt("schema") in 1..8)
             val b = j.getJSONObject("brush")
             val c = j.getJSONObject("camera")
             val list = j.getJSONArray("stages")
@@ -222,6 +225,7 @@ data class Project(
                         .coerceIn(0.0, 1.0),
                 workMillis = j.getLong("workMillis").coerceAtLeast(0),
                 workSpeed = j.optDouble("workSpeed", 1.0).toFloat().coerceIn(.5f, 5f),
+                strokeCount = j.optLong("strokeCount", 0).coerceAtLeast(0),
                 eraserEnabled = j.optBoolean("eraserEnabled", false),
                 paletteHue = j.optDouble("paletteHue", 285.0).toFloat().coerceIn(0f, 360f),
                 paletteSaturation = j.optDouble("paletteSaturation", .75).toFloat().coerceIn(0f, 1f),

@@ -20,6 +20,7 @@ data class StudioStatus(
     val canRedo: Boolean,
     val time: Long,
     val simulatedTime: Long,
+    val strokeCount: Long,
     val ready: Boolean = false,
     val saving: Boolean = false,
     val error: String? = null,
@@ -93,6 +94,8 @@ class StudioSession(val repository: ProjectRepository, loaded: LoadedProject) {
     private var checkpoint = loaded.engine
     private var committedProgress = loaded.project.progress
     private var lastTimedSave = 0L
+    /** Set only after the reveal engine has accepted a single-contact stroke. */
+    private var pendingStrokeCount = false
     private val writer = Executors.newSingleThreadExecutor()
 
     private data class Save(
@@ -113,6 +116,7 @@ class StudioSession(val repository: ProjectRepository, loaded: LoadedProject) {
                 engine.canRedo,
                 clock.millis(),
                 clock.epochMillis(project.simulatedEpochMillis),
+                project.strokeCount,
             )
         )
     val status = mutable.asStateFlow()
@@ -128,6 +132,7 @@ class StudioSession(val repository: ProjectRepository, loaded: LoadedProject) {
                 engine.canRedo,
                 clock.millis(),
                 clock.epochMillis(project.simulatedEpochMillis),
+                project.strokeCount,
                 ready,
                 savedSerial < serial,
                 failure ?: saveFailure,
@@ -149,6 +154,7 @@ class StudioSession(val repository: ProjectRepository, loaded: LoadedProject) {
 
     fun input(frame: InputFrame, vw: Int, vh: Int) {
         val old = engine.revision
+        var strokeCompleted = false
         for (g in router.handle(frame)) when (g) {
             is Gesture.PenDown ->
                 if (writable) {
@@ -163,6 +169,7 @@ class StudioSession(val repository: ProjectRepository, loaded: LoadedProject) {
                         project.eraserEnabled,
                         cancellableCompletion = g.p.tool == Tool.FINGER,
                     )
+                    pendingStrokeCount = true
                 }
             is Gesture.PenMove ->
                 if (writable) {
@@ -173,8 +180,20 @@ class StudioSession(val repository: ProjectRepository, loaded: LoadedProject) {
                         g.p.pressure,
                     )
                 }
-            Gesture.PenUp -> engine.end()
-            Gesture.PenCancel -> engine.cancel()
+            Gesture.PenUp -> {
+                engine.end()
+                if (pendingStrokeCount) {
+                    pendingStrokeCount = false
+                    if (project.strokeCount < Long.MAX_VALUE) {
+                        project = project.copy(strokeCount = project.strokeCount + 1)
+                        strokeCompleted = true
+                    }
+                }
+            }
+            Gesture.PenCancel -> {
+                engine.cancel()
+                pendingStrokeCount = false
+            }
             is Gesture.Navigate ->
                 camera.transform(
                     g.from,
@@ -191,7 +210,7 @@ class StudioSession(val repository: ProjectRepository, loaded: LoadedProject) {
             Gesture.ToggleUnrevealedOverlay -> toggleUnrevealedOverlay()
             Gesture.ToggleProgress -> toggleProgress()
         }
-        if (engine.revision != old) save()
+        if (engine.revision != old || strokeCompleted) save()
         publish()
     }
 
@@ -389,6 +408,7 @@ class StudioSession(val repository: ProjectRepository, loaded: LoadedProject) {
     /** Cancels the provisional finger dot before the circular colour shortcut takes ownership. */
     fun beginCircularPalettePicker() {
         engine.cancel()
+        pendingStrokeCount = false
         router.claimSingleFingerHold()
         inputDiagnostic = "Sélecteur circulaire de couleur actif."
         publish()

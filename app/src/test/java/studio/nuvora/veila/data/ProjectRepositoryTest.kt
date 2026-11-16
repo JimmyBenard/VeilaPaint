@@ -483,4 +483,32 @@ class ProjectRepositoryTest {
             session.shutdown()
         }
     }
+
+    @Test
+    fun completedSingleContactStrokesAreCountedAndPersisted() {
+        val p = imported(2)
+        val session = StudioSession(repo, LoadedProject(p, RevealEngine(32, 32, 2).snapshot()))
+        session.ready = true
+        val pen = Pointer(9, 160f, 160f, Tool.PEN)
+        val finger = Pointer(1, 80f, 80f, Tool.FINGER)
+        try {
+            session.input(InputFrame(Action.DOWN, 0, listOf(pen), pen.id), 320, 320)
+            session.input(InputFrame(Action.UP, 20, listOf(pen), pen.id), 320, 320)
+            assertEquals(1L, session.status.value.strokeCount)
+
+            // The provisional first finger of a multi-touch gesture is cancelled, not counted.
+            session.input(InputFrame(Action.DOWN, 30, listOf(finger), finger.id), 320, 320)
+            val second = Pointer(2, 180f, 80f, Tool.FINGER)
+            session.input(InputFrame(Action.POINTER_DOWN, 40, listOf(finger, second), second.id), 320, 320)
+            session.input(InputFrame(Action.POINTER_UP, 50, listOf(finger, second), second.id), 320, 320)
+            session.input(InputFrame(Action.UP, 60, listOf(finger), finger.id), 320, 320)
+            assertEquals(1L, session.status.value.strokeCount)
+        } finally {
+            val done = java.util.concurrent.CountDownLatch(1)
+            session.flush { done.countDown() }
+            assertTrue(done.await(10, java.util.concurrent.TimeUnit.SECONDS))
+            session.shutdown()
+        }
+        assertEquals(1L, repo.load(p.id).project.strokeCount)
+    }
 }
